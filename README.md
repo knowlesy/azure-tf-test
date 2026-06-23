@@ -1,34 +1,73 @@
-# 🚀 Enterprise Project Template
+# terraform-provider-mockazurerm
 
-A production-ready repository blueprint optimized for **Python, PowerShell, Helm, and ArgoCD** environments. This template enforces strict code consistency, multi-layered security boundaries, and token-efficient AI guardrails.
+A custom offline mock Terraform provider for Azure, built using the `terraform-plugin-framework`.
 
----
+This provider creates a highly realistic, offline-only validation engine that perfectly mimics the behavior of the official `hashicorp/azurerm` provider. It strictly operates locally and performs NO actual cloud deployments to Azure. Its primary purpose is parsing standard Azure HCL configurations, validating dependency hierarchies, and generating accurate mock state models locally for rapid pipeline CI/CD testing, compliance auditing, or module validation.
 
-## 🛠️ What's Inside This Template?
+## Features
 
-This boilerplate eliminates configuration drift by including pre-aligned environment controls right from day one:
+- **Zero Cloud Interaction:** Completely mocks the Azure Resource Manager (ARM) API.
+- **Local State Generation:** All CRUD operations generate standard Azure resource ID strings and mock computed attributes directly into a `.mockazurerm_db.json` database.
+- **Dependency Integrity:** Ensures parent/child relationships (like Subnets referencing Virtual Networks) are strictly validated in local memory.
+- **Schema Parity:** Includes standard major resources like `azurerm_resource_group`, `azurerm_linux_virtual_machine`, `azurerm_kubernetes_cluster`, `azurerm_storage_account`, etc.
 
-### 🔒 Unified Ignore & Context Guardrails
-*   **`.gitignore`** – Prevents tracking of OS junk, Python virtual environments, PowerShell serialization caches, local Helm dependencies (`charts/*.tgz`), and system metadata.
-*   **`.dockerignore`** – Carbon-copy of our Git exclusions to keep Docker container context streamlined, safe from leaking secrets, and incredibly fast to build.
-*   **`.copilotignore` & `.aignore`** – Aligned security and context boundaries. Stops GitHub Copilot, Gemini, Cursor, and other AI agents from processing sensitive certificates, environment secrets, and heavy build artifacts (saving context tokens).
+## Quick Start
 
-### 📐 Code Quality & Environment Sync
-*   **`.editorconfig`** – Hard-coded indentation rules directly inside your IDE workspace (strict 2-space rules for Kubernetes/Helm YAMLs; PEP-8 4-space rules for Python).
-*   **`.gitattributes`** – Automated safety net to enforce clean Unix-style (`LF`) line endings for Python/YAML and native Windows (`CRLF`) line endings for PowerShell scripts.
+### 1. Build the Provider
 
-### 🤖 Automation & Scaffolding
-*   **Folder Structure** – Placeholder folders equipped with `.gitkeep` directories ready for immediate codebase structuring (`/logs`, `/github`, `/scripts`).
+Ensure you have Go 1.21+ installed. Clone this repository and run:
 
----
+```bash
+go build -o terraform-provider-mockazurerm
+```
 
-## 🚀 How to Use
+### 2. Configure Terraform Dev Overrides
 
-1. Click the green **"Use this template"** button at the top right of this page on GitHub.
-2. Select **"Create a new repository"**.
-3. Name your new project and start coding immediately with all guardrails already in place.
+Configure Terraform to use your locally compiled provider by creating or updating a `.terraformrc` file:
 
----
+```hcl
+provider_installation {
+  dev_overrides {
+    "peterknowles/mockazurerm" = "/path/to/your/repository/azure-tf-test"
+  }
+  direct {}
+}
+```
 
-## ⚠️ Guardrail Reminders
-Never bypass the security blocks. All certificates (`*.crt`, `*.pem`), credential stores (`*.pfx`), and environment arrays (`.env*`) are globally locked out of source control and AI scanning across **all** configuration layers in this repo.
+Set the environment variable to point to this configuration:
+
+```bash
+export TF_CLI_CONFIG_FILE="/path/to/your/repository/azure-tf-test/test/.terraformrc"
+```
+
+### 3. Write HCL and Apply
+
+Create a `main.tf` file using the mock provider:
+
+```hcl
+terraform {
+  required_providers {
+    mockazurerm = {
+      source  = "peterknowles/mockazurerm"
+    }
+  }
+}
+
+provider "mockazurerm" {
+  subscription_id = "00000000-0000-0000-0000-000000000000"
+}
+
+resource "mockazurerm_resource_group" "example" {
+  name     = "example-rg"
+  location = "West Europe"
+}
+```
+
+Run Terraform:
+
+```bash
+terraform plan
+terraform apply
+```
+
+Check the generated `.mockazurerm_db.json` file to see your offline mock deployment state!
